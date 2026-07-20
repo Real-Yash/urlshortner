@@ -1,0 +1,12 @@
+name = "url-shortener-api"
+main = "src/index.ts"
+compatibility_date = "2026-07-20"
+
+[env.dev]
+name = "url-shortener-api-dev"
+workers_dev = true
+
+# Set secrets before deployment:
+# wrangler secret put SUPABASE_URL --config worker/wrangler.toml
+# wrangler secret put SUPABASE_PUBLISHABLE_KEY --config worker/wrangler.toml
+# wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config worker/wrangler.toml
