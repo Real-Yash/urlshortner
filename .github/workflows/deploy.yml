@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name == 'main' && 'production' || 'development' }}
-      url: ${{ github.ref_name == 'main' && 'https://urlshortner-dny.pages.dev' || 'https://dev.urlshortner-dny.pages.dev' }}
+      url: ${{ github.ref_name == 'main' && 'https://linkbasehq.pages.dev' || 'https://dev.linkbasehq.pages.dev' }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -30,4 +30,4 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx wrangler deploy --config worker/wrangler.toml ${{ github.ref_name == 'dev' && '--env dev' || '' }}
-      - run: npx wrangler pages deploy out --project-name urlshortner ${{ github.ref_name == 'dev' && '--branch dev' || '' }}
+      - run: npx wrangler pages deploy out --project-name linkbasehq ${{ github.ref_name == 'dev' && '--branch dev' || '' }}
