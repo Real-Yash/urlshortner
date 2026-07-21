@@ -20,3 +20,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible { 
 .auth-page { background:linear-gradient(135deg,#f3f1e9,#e3eadf); }.auth-layout { box-shadow:0 28px 70px #28383216; }.auth-aside { color:#e8eadc; background:#34433c; }.auth-aside p { color:#c7d0c4; }.auth-aside .eyebrow { color:#d7e5ce; background:#46594f; }.auth-points { color:#d4dbd0; }.social-button { background:#f6f3ea; border-color:#cfcdc0; }.coming-soon { color:#3e695d; background:#e4ece0; }.field { color:#3f4e47; }.field input,.field select,.field textarea,.search { border-color:#cfcdc0; background:#fdfbf5; }
 .sidebar,.mobile-nav { color:#e5e6d9; background:#34433c; }.sidebar .brand,.workspace { color:#e9ead9; }.workspace { background:#43534b; border-color:#627268; }.workspace small,.side-nav a,.sidebar-bottom a { color:#c7d0c5; }.side-nav a:hover,.side-nav a.active { color:#edf0e3; background:#46594f; }.side-nav .nav-icon { color:#b8d0bb; }.app-header { background:#f8f6ef; }.app-header .search,.data-table th { background:#f1efe7; }.preview-card { background:#f0f5ed; border-color:#9bb89d; }.badge.active { color:#2f6d55; background:#e3f0e5; }.badge.disabled { color:#a6463e; background:#f8e7e2; }.upcoming { color:#52746a; }
 @media (prefers-color-scheme:dark) { :root { color-scheme:light; --bg:#f3f1e9; --surface:#faf8f2; --surface-2:#eeece3; --text:#283832; --muted:#65716a; --line:#d8d6ca; --brand:#35675b; --brand-dark:#285347; --danger:#a6463e; --success:#2f6d55; } .field input,.field select,.field textarea,.search,.button.secondary { background:#fdfbf5; color:var(--text); border-color:#cfcdc0; } .data-table th { background:#f1efe7; }.preview-card { background:#f0f5ed; }.eyebrow { background:#e4ece0; color:#3e695d; } }
+
+/* Product name is rendered consistently while the compact existing layouts remain unchanged. */
+.brand { font-size:0; }
+.brand .brand-mark { font-size:14px; }
+.brand::after { content:"Zylin"; font-size:16px; }
+.footer > span { font-size:0; }
+.footer > span::after { content:"© 2026 Zylin"; font-size:13px; }

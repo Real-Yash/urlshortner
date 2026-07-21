@@ -1,4 +1,4 @@
-# URL Shortener SaaS
+# Zylin
 
 Phase 1 is a static Next.js dashboard on Cloudflare Pages, backed by Supabase Auth/Postgres, plus a Cloudflare Worker for the versioned management API and public redirects.
 

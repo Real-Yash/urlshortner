@@ -39,7 +39,7 @@ The stack is a direction, not implementation yet. Prefer managed services and na
 
 ## Open decisions
 
-- Final product name and primary customer niche
+- Primary customer niche
 - Exact custom-domain onboarding flow
 - Pricing and billing launch scope
 
@@ -49,4 +49,4 @@ The stack is a direction, not implementation yet. Prefer managed services and na
 - 2026-07-20: Chose an API-first product architecture.
 - 2026-07-20: Phase 1 uses one owner workspace automatically created for each authenticated user, session-authenticated `/api/v1/links` Worker endpoints, and direct Worker-to-Supabase active-link lookups. The static Next.js dashboard deploys to Cloudflare Pages. No redirect analytics or cache is in this phase so disabled/deleted links take effect immediately.
 - 2026-07-20: GitHub Actions deploys pushes to `dev` to the `dev` Pages branch and `url-shortener-api-dev` Worker, while pushes to `main` deploy production. Both environments currently use the same Supabase project; a separate Supabase project is deferred until isolation is needed.
-- 2026-07-21: The Cloudflare Pages deployment target is `linkbasehq`, providing the production URL `linkbasehq.pages.dev`; GitHub deployment entries link to the corresponding production or dev Pages URL.
+- 2026-07-21: The product is named Zylin. Its planned public domains are `zylin.com` for the dashboard and `zyl.in` for short links; until those domains are connected, the Cloudflare Pages deployment target is `zylin` at `zylin.pages.dev`.
