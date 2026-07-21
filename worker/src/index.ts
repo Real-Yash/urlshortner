@@ -1,4 +1,5 @@
 import { projectId, projectName } from "../../app/lib/projects";
+import { summarizeClicks, type ClickEvent } from "../../app/lib/analytics";
 
 export interface Env {
   SUPABASE_URL: string;
@@ -72,6 +73,17 @@ async function api(request: Request, env: Env, pathname: string) {
     const data = response.ok ? await response.json() as unknown[] : null;
     return json(response.ok ? { data: data?.[0] } : { error: "Unable to create project" }, response.ok ? 201 : 400);
   }
+  if (pathname === "/api/v1/analytics" && request.method === "GET") {
+    const since = new Date(); since.setUTCHours(0, 0, 0, 0); since.setUTCDate(since.getUTCDate() - 6);
+    const [count, response] = await Promise.all([
+      database(env, "click_events?select=id&limit=1", token, { headers:{ Prefer:"count=exact", Range:"0-0" } }),
+      database(env, `click_events?select=link_id,clicked_at,links(code)&clicked_at=gte.${encodeURIComponent(since.toISOString())}&order=clicked_at.asc`, token),
+    ]);
+    if (!count.ok || !response.ok) return json({ error: "Unable to load analytics" }, 400);
+    const data = summarizeClicks(await response.json() as ClickEvent[]);
+    const total = Number(count.headers.get("content-range")?.split("/")[1]);
+    return json({ data:{ ...data, total:Number.isFinite(total) ? total : data.total } });
+  }
   if (id && /^[0-9a-f-]{36}$/i.test(id) && request.method === "PATCH") {
     const body = await request.json().catch(() => null) as { destination_url?: unknown; alias?: unknown; status?: unknown; project_id?: unknown } | null;
     const patch: Record<string, string | null> = {};
@@ -101,14 +113,15 @@ async function api(request: Request, env: Env, pathname: string) {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) return api(request, env, url.pathname);
     if (request.method !== "GET" && request.method !== "HEAD") return new Response("Not found", { status: 404 });
     if (!/^\/[A-Za-z0-9_-]{4,64}$/.test(url.pathname)) return new Response("Not found", { status: 404 });
-    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/links?code=eq.${encodeURIComponent(url.pathname.slice(1))}&status=eq.active&select=destination_url&limit=1`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } });
+    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/links?code=eq.${encodeURIComponent(url.pathname.slice(1))}&status=eq.active&select=id,workspace_id,destination_url&limit=1`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } });
     if (!response.ok) return new Response("Not found", { status: 404 });
-    const [link] = await response.json() as { destination_url: string }[];
+    const [link] = await response.json() as { id:string; workspace_id:string; destination_url: string }[];
+    if (link && request.method === "GET") ctx.waitUntil(fetch(`${env.SUPABASE_URL}/rest/v1/click_events`, { method:"POST", headers:{ apikey:env.SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type":"application/json" }, body:JSON.stringify({link_id:link.id,workspace_id:link.workspace_id}) }).catch(() => undefined));
     return link ? Response.redirect(link.destination_url, 302) : new Response("Not found", { status: 404 });
   },
 };

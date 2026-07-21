@@ -1,10 +1,16 @@
-name = "url-shortener-api"
+name = "zyl"
 main = "src/index.ts"
 compatibility_date = "2026-07-20"
+workers_dev = false
+
+[[routes]]
+pattern = "zylin.yashpatil.dev"
+custom_domain = true
 
 [env.dev]
 name = "url-shortener-api-dev"
 workers_dev = true
+routes = []
 
 # Set secrets before deployment:
 # wrangler secret put SUPABASE_URL --config worker/wrangler.toml
