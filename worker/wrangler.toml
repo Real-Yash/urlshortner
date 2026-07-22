@@ -6,6 +6,10 @@ workers_dev = false
 # zylin.yashpatil.dev is a custom domain configured in the Cloudflare dashboard.
 # Keep it outside this file so CI only needs Worker script permissions.
 
+[[routes]]
+pattern = "*.zylin.yashpatil.dev/*"
+zone_name = "yashpatil.dev"
+
 [env.dev]
 name = "url-shortener-api-dev"
 workers_dev = true
