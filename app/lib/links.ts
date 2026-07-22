@@ -16,3 +16,7 @@ export function customCode(value: unknown) {
   const code = value.trim().toLowerCase();
   return codePattern.test(code) && !reservedCodes.has(code) ? code : null;
 }
+
+export function randomCode() {
+  return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(5)))).replace(/[+/]/g, "_").replace(/=+$/, "").slice(0, 6);
+}

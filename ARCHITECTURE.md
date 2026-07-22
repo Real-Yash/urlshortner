@@ -47,15 +47,15 @@ The initial schema contains only `workspaces`, `workspace_members`, and `links`.
 ```text
 workspaces(id, name, plan, status)
 workspace_members(workspace_id, user_id, role)
-domains(id, workspace_id, hostname, status, verification_token, is_default)
+domains(id, workspace_id, hostname, status)
 links(id, workspace_id, domain_id, code, destination_url, redirect_type,
       status, expires_at, password_hash, created_at, updated_at)
-api_keys(id, workspace_id, name, key_prefix, secret_hash, last_used_at, revoked_at)
+api_keys(id, project_id, name, key_prefix, secret_hash, created_at)
 daily_link_stats(link_id, day, clicks, unique_visitors_estimate, ...)
 subscriptions(workspace_id, provider, provider_subscription_id, status, current_period_end)
 ```
 
-Unique constraints: `domains.hostname`; `(links.domain_id, links.code)`; `api_keys.key_prefix`. Soft-delete links only if the product promises recovery; otherwise delete and invalidate cache.
+Unique constraints: `domains.hostname`; `(links.domain_id, links.code)`; `api_keys.key_prefix`. API keys are project-scoped and store only a SHA-256 hash; deleting a key revokes it. Soft-delete links only if the product promises recovery; otherwise delete and invalidate cache.
 
 ## Management API
 
@@ -98,7 +98,7 @@ Cache invalidation is required on every link/domain create, update, disable, del
 
 ## Domains
 
-Customer adds `go.customer.com` -> API creates a verification token -> customer adds the specified DNS record -> background check verifies ownership -> customer points the hostname through Cloudflare -> Worker accepts traffic only after status is `active`.
+Dashboard claims a unique `brand.zylin.yashpatil.dev` hostname -> wildcard DNS sends it to the Worker -> Worker accepts traffic only for links in the owning workspace. Customer-owned domains remain deferred until Cloudflare for SaaS is justified.
 
 Handle: hostname already claimed, DNS propagation delay, invalid CNAME, apex-domain limitations, SSL not ready, domain disabled/expired, ownership re-verification, and a customer removing DNS later. Do not activate a domain based on a browser callback.
 
@@ -134,7 +134,7 @@ Entitlements are checked in the management API: number of links, active domains,
 2. Worker redirect path with platform domain, cache, validation, and invalidation.
 3. Dashboard using only `/v1` endpoints.
 4. Async aggregate click counts and a small stats view.
-5. API keys, custom domains, then billing.
+5. Project API keys, custom domains, then billing.
 
 ## Decisions still needed
 

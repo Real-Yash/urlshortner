@@ -7,6 +7,10 @@ workers_dev = false
 pattern = "zylin.yashpatil.dev"
 custom_domain = true
 
+[[routes]]
+pattern = "*.zylin.yashpatil.dev/*"
+zone_name = "yashpatil.dev"
+
 [env.dev]
 name = "url-shortener-api-dev"
 workers_dev = true
