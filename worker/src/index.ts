@@ -78,6 +78,25 @@ async function api(request: Request, env: Env, pathname: string) {
     if (body?.project_id !== undefined && (!project || !await belongsToWorkspace(env, token, project, workspace))) return json({ error: "Project not found" }, 400);
     return createLink(env, token, workspace, project, body ?? {}, request.url);
   }
+  if (pathname === "/api/v1/workspace" && request.method === "GET") {
+    if (integration) return json({ error: "Unauthorized" }, 401);
+    const workspace = await workspaceId(env, token);
+    if (!workspace) return json({ error: "Workspace not found" }, 403);
+    const response = await database(env, `workspaces?id=eq.${workspace}&select=id,name,created_at&limit=1`, token);
+    const [data] = response.ok ? await response.json() as unknown[] : [];
+    return json(data ? { data } : { error: "Workspace not found" }, data ? 200 : 404);
+  }
+  if (pathname === "/api/v1/workspace" && request.method === "PATCH") {
+    if (integration) return json({ error: "Unauthorized" }, 401);
+    const body = await request.json().catch(() => null) as { name?: unknown } | null;
+    const name = projectName(body?.name);
+    if (!name) return json({ error: "name must be 1-100 characters" }, 400);
+    const workspace = await workspaceId(env, token);
+    if (!workspace) return json({ error: "Workspace not found" }, 403);
+    const response = await database(env, `workspaces?id=eq.${workspace}`, token, { method: "PATCH", body: JSON.stringify({ name }) });
+    const [data] = response.ok ? await response.json() as unknown[] : [];
+    return json(data ? { data } : { error: response.ok ? "Workspace not found" : "Unable to update workspace" }, data ? 200 : response.ok ? 404 : 400);
+  }
   if (pathname === "/api/v1/projects" && request.method === "GET") {
     const response = await database(env, "projects?select=*&order=created_at.desc", token);
     return json(response.ok ? { data: await response.json() } : { error: "Unable to load projects" }, response.ok ? 200 : 400);

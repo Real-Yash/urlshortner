@@ -54,3 +54,4 @@ The stack is a direction, not implementation yet. Prefer managed services and na
 - 2026-07-22: Basic analytics records successful GET redirects asynchronously in `click_events`; the dashboard shows authenticated seven-day totals and top links. Event writes never block redirects.
 - 2026-07-22: Projects can have multiple named API keys. The Worker stores only SHA-256 key hashes and lets a key create random six-character links only in its project. The returned `short_url` uses the request origin; custom-domain selection is deferred.
 - 2026-07-22: Workspaces can claim a free `*.zylin.yashpatil.dev` subdomain. The Worker resolves subdomains only to links in the owning workspace; customer-owned custom domains are deferred until Cloudflare for SaaS is justified.
+- 2026-07-22: Workspace owners can rename their workspace; Teams shows the current single owner. Invitations and additional roles remain deferred.

@@ -5,6 +5,7 @@ export type Project = { id:string; name:string; created_at:string };
 export type Analytics = { total:number; daily:{date:string;clicks:number}[]; links:{code:string;clicks:number}[] };
 export type ApiKey = { id:string; project_id:string; name:string; key_prefix:string; created_at:string; projects?:{name:string}|null };
 export type Domain = { id:string; hostname:string; status:"pending"|"active"|"moved"|"failed"; created_at:string };
+export type Workspace = { id:string; name:string; created_at:string };
 const endpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/v1`;
 
 async function request(path = "", init?: RequestInit) {
@@ -37,4 +38,8 @@ export const domainsApi = {
   create: (body:{ subdomain:string }) => request("/domains", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) }) as Promise<Domain>,
   refresh: (id:string) => request(`/domains/${id}`, { method:"PATCH" }) as Promise<Domain>,
   remove: (id:string) => request(`/domains/${id}`, { method:"DELETE" }),
+};
+export const workspaceApi = {
+  get: () => request("/workspace") as Promise<Workspace>,
+  update: (body:{ name:string }) => request("/workspace", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) }) as Promise<Workspace>,
 };
