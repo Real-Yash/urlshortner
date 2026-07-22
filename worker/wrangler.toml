@@ -3,9 +3,8 @@ main = "src/index.ts"
 compatibility_date = "2026-07-20"
 workers_dev = false
 
-[[routes]]
-pattern = "zylin.yashpatil.dev"
-custom_domain = true
+# zylin.yashpatil.dev is a custom domain configured in the Cloudflare dashboard.
+# Keep it outside this file so CI only needs Worker script permissions.
 
 [env.dev]
 name = "url-shortener-api-dev"
