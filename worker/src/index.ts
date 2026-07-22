@@ -1,3 +1,6 @@
+import { projectId, projectName } from "../../app/lib/projects";
+import { summarizeClicks, type ClickEvent } from "../../app/lib/analytics";
+
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_PUBLISHABLE_KEY: string;
@@ -23,6 +26,15 @@ function authorization(request: Request) { const value = request.headers.get("Au
 function database(env: Env, path: string, authorization: string, init?: RequestInit) {
   return fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, { ...init, headers: { apikey: env.SUPABASE_PUBLISHABLE_KEY, Authorization: authorization, "Content-Type": "application/json", Prefer: "return=representation", ...init?.headers } });
 }
+async function workspaceId(env: Env, token: string) {
+  const response = await database(env, "workspace_members?select=workspace_id&limit=1", token);
+  const [workspace] = response.ok ? await response.json() as { workspace_id: string }[] : [];
+  return workspace?.workspace_id;
+}
+async function belongsToWorkspace(env: Env, token: string, project: string, workspace: string) {
+  const response = await database(env, `projects?id=eq.${project}&workspace_id=eq.${workspace}&select=id&limit=1`, token);
+  return response.ok && (await response.json() as unknown[]).length > 0;
+}
 
 async function api(request: Request, env: Env, pathname: string) {
   if (request.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -30,28 +42,63 @@ async function api(request: Request, env: Env, pathname: string) {
   if (!token) return json({ error: "Unauthorized" }, 401);
   const id = pathname.slice("/api/v1/links/".length);
   if (pathname === "/api/v1/links" && request.method === "GET") {
-    const response = await database(env, "links?select=*&order=created_at.desc", token);
+    const response = await database(env, "links?select=*,projects(name)&order=created_at.desc", token);
     return json(response.ok ? { data: await response.json() } : { error: "Unable to load links" }, response.ok ? 200 : 400);
   }
   if (pathname === "/api/v1/links" && request.method === "POST") {
-    const body = await request.json().catch(() => null) as { destination_url?: unknown; alias?: unknown } | null;
+    const body = await request.json().catch(() => null) as { destination_url?: unknown; alias?: unknown; project_id?: unknown } | null;
     const url = destinationUrl(body?.destination_url);
     const code = body?.alias === undefined || body.alias === "" ? randomCode() : customCode(body.alias);
     if (!url) return json({ error: "destination_url must be an absolute http or https URL without credentials" }, 400);
     if (!code) return json({ error: "alias must be 4-64 URL-safe characters and not reserved" }, 400);
-    const member = await database(env, "workspace_members?select=workspace_id&limit=1", token);
-    const [workspace] = member.ok ? await member.json() as { workspace_id: string }[] : [];
+    const workspace = await workspaceId(env, token);
     if (!workspace) return json({ error: "Workspace not found" }, 403);
-    const response = await database(env, "links", token, { method: "POST", body: JSON.stringify({ workspace_id: workspace.workspace_id, code, destination_url: url }) });
+    const project = body?.project_id === undefined ? null : projectId(body.project_id);
+    if (body?.project_id !== undefined && (!project || !await belongsToWorkspace(env, token, project, workspace))) return json({ error: "Project not found" }, 400);
+    const response = await database(env, "links", token, { method: "POST", body: JSON.stringify({ workspace_id: workspace, code, destination_url: url, ...(project ? { project_id: project } : {}) }) });
     const data = response.ok ? await response.json() as unknown[] : null;
     return json(response.ok ? { data: data?.[0] } : { error: response.status === 409 ? "alias is already in use" : "Unable to create link" }, response.ok ? 201 : response.status === 409 ? 409 : 400);
   }
+  if (pathname === "/api/v1/projects" && request.method === "GET") {
+    const response = await database(env, "projects?select=*&order=created_at.desc", token);
+    return json(response.ok ? { data: await response.json() } : { error: "Unable to load projects" }, response.ok ? 200 : 400);
+  }
+  if (pathname === "/api/v1/projects" && request.method === "POST") {
+    const body = await request.json().catch(() => null) as { name?: unknown } | null;
+    const name = projectName(body?.name);
+    if (!name) return json({ error: "name must be 1-100 characters" }, 400);
+    const workspace = await workspaceId(env, token);
+    if (!workspace) return json({ error: "Workspace not found" }, 403);
+    const response = await database(env, "projects", token, { method: "POST", body: JSON.stringify({ workspace_id: workspace, name }) });
+    const data = response.ok ? await response.json() as unknown[] : null;
+    return json(response.ok ? { data: data?.[0] } : { error: "Unable to create project" }, response.ok ? 201 : 400);
+  }
+  if (pathname === "/api/v1/analytics" && request.method === "GET") {
+    const since = new Date(); since.setUTCHours(0, 0, 0, 0); since.setUTCDate(since.getUTCDate() - 6);
+    const [count, response] = await Promise.all([
+      database(env, "click_events?select=id&limit=1", token, { headers:{ Prefer:"count=exact", Range:"0-0" } }),
+      database(env, `click_events?select=link_id,clicked_at,links(code)&clicked_at=gte.${encodeURIComponent(since.toISOString())}&order=clicked_at.asc`, token),
+    ]);
+    if (!count.ok || !response.ok) return json({ error: "Unable to load analytics" }, 400);
+    const data = summarizeClicks(await response.json() as ClickEvent[]);
+    const total = Number(count.headers.get("content-range")?.split("/")[1]);
+    return json({ data:{ ...data, total:Number.isFinite(total) ? total : data.total } });
+  }
   if (id && /^[0-9a-f-]{36}$/i.test(id) && request.method === "PATCH") {
-    const body = await request.json().catch(() => null) as { destination_url?: unknown; alias?: unknown; status?: unknown } | null;
-    const patch: Record<string, string> = {};
+    const body = await request.json().catch(() => null) as { destination_url?: unknown; alias?: unknown; status?: unknown; project_id?: unknown } | null;
+    const patch: Record<string, string | null> = {};
     if (body?.destination_url !== undefined) { const url = destinationUrl(body.destination_url); if (!url) return json({ error: "destination_url must be an absolute http or https URL without credentials" }, 400); patch.destination_url = url; }
     if (body?.alias !== undefined) { const code = customCode(body.alias); if (!code) return json({ error: "alias must be 4-64 URL-safe characters and not reserved" }, 400); patch.code = code; }
     if (body?.status !== undefined) { if (body.status !== "active" && body.status !== "disabled") return json({ error: "status must be active or disabled" }, 400); patch.status = body.status; }
+    if (body?.project_id !== undefined) {
+      if (body.project_id === null) patch.project_id = null;
+      else {
+        const project = projectId(body.project_id);
+        const workspace = await workspaceId(env, token);
+        if (!project || !workspace || !await belongsToWorkspace(env, token, project, workspace)) return json({ error: "Project not found" }, 400);
+        patch.project_id = project;
+      }
+    }
     if (!Object.keys(patch).length) return json({ error: "No supported changes" }, 400);
     const response = await database(env, `links?id=eq.${id}`, token, { method: "PATCH", body: JSON.stringify(patch) });
     const data = response.ok ? await response.json() as unknown[] : [];
@@ -66,14 +113,15 @@ async function api(request: Request, env: Env, pathname: string) {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) return api(request, env, url.pathname);
     if (request.method !== "GET" && request.method !== "HEAD") return new Response("Not found", { status: 404 });
     if (!/^\/[A-Za-z0-9_-]{4,64}$/.test(url.pathname)) return new Response("Not found", { status: 404 });
-    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/links?code=eq.${encodeURIComponent(url.pathname.slice(1))}&status=eq.active&select=destination_url&limit=1`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } });
+    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/links?code=eq.${encodeURIComponent(url.pathname.slice(1))}&status=eq.active&select=id,workspace_id,destination_url&limit=1`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } });
     if (!response.ok) return new Response("Not found", { status: 404 });
-    const [link] = await response.json() as { destination_url: string }[];
+    const [link] = await response.json() as { id:string; workspace_id:string; destination_url: string }[];
+    if (link && request.method === "GET") ctx.waitUntil(fetch(`${env.SUPABASE_URL}/rest/v1/click_events`, { method:"POST", headers:{ apikey:env.SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type":"application/json" }, body:JSON.stringify({link_id:link.id,workspace_id:link.workspace_id}) }).catch(() => undefined));
     return link ? Response.redirect(link.destination_url, 302) : new Response("Not found", { status: 404 });
   },
 };
